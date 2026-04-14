@@ -53,8 +53,8 @@ def cargar_datos():
     try:
         # Abrir el spreadsheet usando URL completa
         try:
-            # URL del Google Sheet - URL EXACTA
-            spreadsheet_url = "https://docs.google.com/spreadsheets/d/1PGOiRuSc8mZLn0oJbUWGlf5ech3P8P2e/edit"
+            # URL del Google Sheet nativo - NUEVA URL
+            spreadsheet_url = "https://docs.google.com/spreadsheets/d/1Q1k4G55SiT0YDIBE5SFT0ktap16zsvv8sDszmL5Br2Y/edit"
             
             # Intentar usar URL completa primero
             try:
