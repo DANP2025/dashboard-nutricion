@@ -51,10 +51,24 @@ def cargar_datos():
         return None
     
     try:
-        # Abrir el spreadsheet 'Base_datos_nutricion'
+        # Abrir el spreadsheet usando URL completa
         try:
-            spreadsheet = client.open("Base_datos_nutricion")
-            st.success("Conexión exitosa al Google Sheet 'Base_datos_nutricion'")
+            # URL del Google Sheet - CONFIGURAR AQUÍ
+            # Ejemplo: "https://docs.google.com/spreadsheets/d/1ABC123XYZ789/edit"
+            spreadsheet_url = st.secrets.get("spreadsheet_url", "https://docs.google.com/spreadsheets/d/TU_SPREADSHEET_ID/edit")
+            
+            # Intentar usar URL completa primero
+            try:
+                if "TU_SPREADSHEET_ID" not in spreadsheet_url:
+                    # Usar URL completa
+                    spreadsheet = client.open_by_url(spreadsheet_url)
+                    st.success("Conexión exitosa al Google Sheet por URL")
+                else:
+                    raise ValueError("URL no configurada")
+            except:
+                # Fallback: usar nombre del spreadsheet
+                spreadsheet = client.open("Base_datos_nutricion")
+                st.success("Conexión exitosa al Google Sheet 'Base_datos_nutricion'")
         except Exception as sheet_error:
             st.error(f"Error abriendo Google Sheet 'Base_datos_nutricion': {sheet_error}")
             st.error("Verifica que:")
