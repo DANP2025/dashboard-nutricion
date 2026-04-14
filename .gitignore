@@ -4,6 +4,9 @@
 *.pem
 *.key
 
+# Ignorar carpeta streamlit/ vieja (archivos movidos a raíz)
+streamlit/
+
 # Entornos virtuales
 venv/
 env/
