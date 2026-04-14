@@ -13,15 +13,35 @@ st.set_page_config(layout="wide", page_title="Dashboard Nutrición")
 # Función para conectar a Google Sheets
 def conectar_google_sheets():
     try:
+        # Verificar que los secrets estén disponibles
+        if "gcp_service_account" not in st.secrets:
+            st.error("Error: No se encontraron las credenciales de Google Cloud en st.secrets")
+            return None
+        
         scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        creds = Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"],
-            scopes=scopes
-        )
-        client = gspread.authorize(creds)
-        return client
+        
+        # Crear credenciales con diagnóstico
+        try:
+            creds = Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"],
+                scopes=scopes
+            )
+        except Exception as cred_error:
+            st.error(f"Error creando credenciales: {cred_error}")
+            st.error("Verifica que todos los campos en secrets.toml estén correctos")
+            return None
+        
+        # Autorizar cliente gspread
+        try:
+            client = gspread.authorize(creds)
+            return client
+        except Exception as auth_error:
+            st.error(f"Error autorizando gspread: {auth_error}")
+            st.error("Verifica que la Service Account tenga los permisos correctos")
+            return None
+            
     except Exception as e:
-        st.error(f"Error conectando a Google Sheets: {e}")
+        st.error(f"Error general conectando a Google Sheets: {e}")
         return None
 
 # Función para cargar datos
@@ -32,31 +52,77 @@ def cargar_datos():
     
     try:
         # Abrir el spreadsheet 'Base_datos_nutricion'
-        spreadsheet = client.open("Base_datos_nutricion")
-        worksheet = spreadsheet.worksheet("Nutricion")
-        data = worksheet.get_all_records()
-        df = pd.DataFrame(data)
+        try:
+            spreadsheet = client.open("Base_datos_nutricion")
+            st.success("Conexión exitosa al Google Sheet 'Base_datos_nutricion'")
+        except Exception as sheet_error:
+            st.error(f"Error abriendo Google Sheet 'Base_datos_nutricion': {sheet_error}")
+            st.error("Verifica que:")
+            st.error("1. El Google Sheet 'Base_datos_nutricion' exista")
+            st.error("2. La Service Account tenga acceso al documento")
+            st.error("3. El nombre del documento sea exactamente 'Base_datos_nutricion'")
+            return None
+        
+        # Buscar la pestaña 'Nutricion'
+        try:
+            worksheet = spreadsheet.worksheet("Nutricion")
+            st.success("Pestaña 'Nutricion' encontrada exitosamente")
+        except Exception as worksheet_error:
+            st.error(f"Error encontrando pestaña 'Nutricion': {worksheet_error}")
+            st.error("Verifica que:")
+            st.error("1. La pestaña 'Nutricion' exista en el documento")
+            st.error("2. El nombre de la pestaña sea exactamente 'Nutricion'")
+            # Mostrar pestañas disponibles para diagnóstico
+            try:
+                worksheets = spreadsheet.worksheets()
+                available_sheets = [ws.title for ws in worksheets]
+                st.error(f"Pestañas disponibles: {available_sheets}")
+            except:
+                pass
+            return None
+        
+        # Obtener datos
+        try:
+            data = worksheet.get_all_records()
+            if not data:
+                st.error("La pestaña 'Nutricion' está vacía o no tiene datos")
+                return None
+            
+            df = pd.DataFrame(data)
+            st.success(f"Datos cargados exitosamente: {len(df)} filas")
+            
+        except Exception as data_error:
+            st.error(f"Error obteniendo datos de la pestaña: {data_error}")
+            st.error("Verifica que la primera fila tenga encabezados")
+            return None
         
         # Convertir 'Fecha de Eval.' a datetime
-        df['Fecha de Eval.'] = pd.to_datetime(df['Fecha de Eval.'], errors='coerce')
-        
-        # Crear columna 'Mes/Año'
-        df['Mes/Año'] = df['Fecha de Eval.'].dt.strftime('%B %Y')
-        
-        # Traducir meses a español si es necesario
-        meses_es = {
-            'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo',
-            'April': 'Abril', 'May': 'Mayo', 'June': 'Junio',
-            'July': 'Julio', 'August': 'Agosto', 'September': 'Septiembre',
-            'October': 'Octubre', 'November': 'Noviembre', 'December': 'Diciembre'
-        }
-        
-        for eng, esp in meses_es.items():
-            df['Mes/Año'] = df['Mes/Año'].str.replace(eng, esp)
-        
-        return df
+        try:
+            df['Fecha de Eval.'] = pd.to_datetime(df['Fecha de Eval.'], errors='coerce')
+            
+            # Crear columna 'Mes/Año'
+            df['Mes/Año'] = df['Fecha de Eval.'].dt.strftime('%B %Y')
+            
+            # Traducir meses a español si es necesario
+            meses_es = {
+                'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo',
+                'April': 'Abril', 'May': 'Mayo', 'June': 'Junio',
+                'July': 'Julio', 'August': 'Agosto', 'September': 'Septiembre',
+                'October': 'Octubre', 'November': 'Noviembre', 'December': 'Diciembre'
+            }
+            
+            for eng, esp in meses_es.items():
+                df['Mes/Año'] = df['Mes/Año'].str.replace(eng, esp)
+            
+            return df
+            
+        except Exception as process_error:
+            st.error(f"Error procesando fechas: {process_error}")
+            st.error("Verifica que exista la columna 'Fecha de Eval.'")
+            return None
+            
     except Exception as e:
-        st.error(f"Error cargando datos: {e}")
+        st.error(f"Error general cargando datos: {e}")
         return None
 
 # Función para obtener colores según condición
