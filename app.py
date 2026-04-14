@@ -53,9 +53,8 @@ def cargar_datos():
     try:
         # Abrir el spreadsheet usando URL completa
         try:
-            # URL del Google Sheet - CONFIGURAR AQUÍ
-            # Ejemplo: "https://docs.google.com/spreadsheets/d/1ABC123XYZ789/edit"
-            spreadsheet_url = st.secrets.get("spreadsheet_url", "https://docs.google.com/spreadsheets/d/TU_SPREADSHEET_ID/edit")
+            # URL del Google Sheet - URL EXACTA
+            spreadsheet_url = "https://docs.google.com/spreadsheets/d/1PGOiRuSc8mZLn0oJbUWGlf5ech3P8P2e/edit"
             
             # Intentar usar URL completa primero
             try:
