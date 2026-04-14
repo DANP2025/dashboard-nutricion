@@ -31,8 +31,8 @@ def cargar_datos():
         return None
     
     try:
-        # Abrir el spreadsheet (necesitarás el nombre o ID del archivo)
-        spreadsheet = client.open("Nutricion")  # Cambiar por el nombre real del spreadsheet
+        # Abrir el spreadsheet 'Base_datos_nutricion'
+        spreadsheet = client.open("Base_datos_nutricion")
         worksheet = spreadsheet.worksheet("Nutricion")
         data = worksheet.get_all_records()
         df = pd.DataFrame(data)
