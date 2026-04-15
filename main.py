@@ -194,7 +194,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
         fig.add_trace(
             go.Bar(
                 x=jugadores,
-                y=df_mes[col_actual],
+                y=df_mes[col_actual].round(1),
                 name=name_actual,
                 marker_color=color_actual,
                 texttemplate='%{y:.1f}',
@@ -210,7 +210,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
         fig.add_trace(
             go.Bar(
                 x=jugadores,
-                y=df_mes[col_objetivo],
+                y=df_mes[col_objetivo].round(1),
                 name=name_objetivo,
                 marker_color=color_obj,
                 texttemplate='%{y:.1f}',
