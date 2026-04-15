@@ -118,6 +118,12 @@ def cargar_datos():
                 except (ValueError, TypeError):
                     pass  # Mantener columnas no numéricas sin cambios
 
+        # Convertir columnas específicas a numérico y dividir por 100
+        columnas_a_dividir = ['Sum 6 plieg.', 'OBJTIVO SUM PLIEGUES', '%GRASA YUHASZ', 'OBJETIVO YUHASZ']
+        for col in columnas_a_dividir:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce') / 100
+
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
             "April": "Abril", "May": "Mayo", "June": "Junio",
