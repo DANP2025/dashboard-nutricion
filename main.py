@@ -111,8 +111,9 @@ def cargar_datos():
         # Aplicar .strip() a los nombres de las columnas para eliminar espacios invisibles
         df.columns = df.columns.str.strip()
 
-        # Convertir fecha
-        df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
+        # Convertir fecha si existe la columna
+        if "Fecha de Eval." in df.columns:
+            df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
         # Limpieza inteligente para formato latino vs decimal estándar
         cols_excluir = {"Fecha de Eval.", "Jugador", "Posicion"}
@@ -147,19 +148,20 @@ def cargar_datos():
                 except Exception:
                     pass
 
-        # Eliminar duplicados por jugador y mes para evitar suma de valores
-        df = df.drop_duplicates(subset=["Jugador", "Mes/Año"], keep="last")
+        # Traducir meses a español y crear Mes/Año solo si existe Fecha de Eval.
+        if "Fecha de Eval." in df.columns:
+            meses_es = {
+                "January": "Enero", "February": "Febrero", "March": "Marzo",
+                "April": "Abril", "May": "Mayo", "June": "Junio",
+                "July": "Julio", "August": "Agosto", "September": "Septiembre",
+                "October": "Octubre", "November": "Noviembre", "December": "Diciembre",
+            }
+            df["Mes/Año"] = df["Fecha de Eval."].dt.strftime("%B %Y")
+            for eng, esp in meses_es.items():
+                df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
 
-        # Traducir meses a español
-        meses_es = {
-            "January": "Enero", "February": "Febrero", "March": "Marzo",
-            "April": "Abril", "May": "Mayo", "June": "Junio",
-            "July": "Julio", "August": "Agosto", "September": "Septiembre",
-            "October": "Octubre", "November": "Noviembre", "December": "Diciembre",
-        }
-        df["Mes/Año"] = df["Fecha de Eval."].dt.strftime("%B %Y")
-        for eng, esp in meses_es.items():
-            df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
+            # Eliminar duplicados por jugador y mes para evitar suma de valores
+            df = df.drop_duplicates(subset=["Jugador", "Mes/Año"], keep="last")
 
         return df
 
