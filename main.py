@@ -147,6 +147,9 @@ def cargar_datos():
                 except Exception:
                     pass
 
+        # Eliminar duplicados por jugador y mes para evitar suma de valores
+        df = df.drop_duplicates(subset=["Jugador", "Mes/Año"], keep="last")
+
         # Traducir meses a español
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
@@ -228,8 +231,8 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
             name_actual   = col_actual
             name_objetivo = "Objetivo"
 
-        # Valores numéricos seguros
-        y_actual = pd.to_numeric(df_mes[col_actual],  errors="coerce").round(1)
+        # Valores numéricos seguros con .round(1)
+        y_actual = pd.to_numeric(df_mes[col_actual], errors="coerce").round(1)
         y_obj    = pd.to_numeric(df_mes[col_objetivo], errors="coerce").round(1)
 
         # Barra: valor actual
@@ -239,13 +242,13 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
                 y=y_actual,
                 name=name_actual,
                 marker_color=color_actual,
-                text=[f"{v:.1f}" if pd.notna(v) and v != 0 else "" for v in y_actual],
                 textposition="inside",
                 textfont=dict(size=10, color="white"),
                 showlegend=show_legend,
                 legendgroup="actual",
                 cliponaxis=False,
                 texttemplate='%{y:.1f}',
+                hovertemplate='%{x}: %{y:.1f}<extra></extra>'
             ),
             row=1, col=i,
         )
@@ -257,13 +260,13 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
                 y=y_obj,
                 name=name_objetivo,
                 marker_color=color_obj,
-                text=[f"{v:.1f}" if pd.notna(v) and v != 0 else "" for v in y_obj],
                 textposition="inside",
                 textfont=dict(size=10, color="white"),
                 showlegend=show_legend,
                 legendgroup="objetivo",
                 cliponaxis=False,
                 texttemplate='%{y:.1f}',
+                hovertemplate='%{x}: %{y:.1f}<extra></extra>'
             ),
             row=1, col=i,
         )
@@ -276,6 +279,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
         autorange=False,
         gridcolor="#f0f0f0",
         tickformat=".1f",
+        hoverformat=".1f",
         showgrid=True,
         exponentformat="none"  # Evitar notación científica
     )
@@ -316,8 +320,8 @@ def crear_grafico_radar(df_jugador, df_equipo):
     if not disp:
         return None
 
-    vals_j = [float(df_jugador[p].iloc[0]) if pd.notna(df_jugador[p].iloc[0]) else 0 for p in disp]
-    vals_e = [df_equipo[p].mean() if p in df_equipo.columns else 0 for p in disp]
+    vals_j = [round(float(df_jugador[p].iloc[0]), 1) if pd.notna(df_jugador[p].iloc[0]) else 0 for p in disp]
+    vals_e = [round(df_equipo[p].mean(), 1) if p in df_equipo.columns else 0 for p in disp]
 
     # Cerrar polígono
     vals_j.append(vals_j[0])
