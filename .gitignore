@@ -39,7 +39,7 @@ wheels/
 MANIFEST
 
 # Streamlit
-.streamlit/config.toml
+# .streamlit/config.toml - Comentado para permitir configuración en Streamlit Cloud
 
 # IDEs
 .vscode/
