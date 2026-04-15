@@ -114,20 +114,29 @@ def cargar_datos():
         # Convertir fecha
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
-        # Limpieza robusta para columnas numéricas con regex
-        import re
+        # Limpieza infalible para formato latino (puntos como separadores de miles, comas como decimales)
         cols_excluir = {"Fecha de Eval.", "Jugador", "Posicion"}
         for col in df.columns:
             if col not in cols_excluir:
                 try:
-                    # Convertir a string y eliminar caracteres no numéricos excepto punto y coma
-                    df[col] = df[col].astype(str).apply(
-                        lambda x: re.sub(r'[^0-9.,-]', '', str(x)) if pd.notna(x) else x
-                    )
-                    # Reemplazar comas por puntos ANTES de convertir a float
-                    df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
+                    # Primero eliminar puntos (separadores de miles en formato latino)
+                    # Luego reemplazar comas por puntos decimales
+                    df[col] = df[col].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
                     # Convertir a numérico y usar .fillna(0.0) para valores vacíos
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+                except Exception:
+                    pass
+
+        # Medida de seguridad: dividir por 10 si valores están fuera de rango esperado
+        for col in df.columns:
+            if col not in cols_excluir:
+                try:
+                    # Si es columna de Sumatoria y valor > 250, dividir por 10
+                    if 'Sum' in col or 'SUM' in col:
+                        df[col] = df[col].apply(lambda x: x / 10 if x > 250 else x)
+                    # Si es columna de % Grasa y valor > 50, dividir por 10
+                    elif 'GRASA' in col or 'Grasa' in col or 'grasa' in col:
+                        df[col] = df[col].apply(lambda x: x / 10 if x > 50 else x)
                 except Exception:
                     pass
 
@@ -187,13 +196,13 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
         vals_actual.max() if not vals_actual.empty else 0,
         vals_obj.max()    if not vals_obj.empty    else 0,
     )
-    # Definir rango fijo para el eje Y con 20% de margen
-    y_range = [0, round(y_max * 1.2, 1)]
+    # Definir rango fijo para el eje Y con 15% de margen
+    y_range = [0, round(y_max * 1.15, 1)]
 
     fig = make_subplots(
         rows=1,
         cols=n_meses,
-        shared_yaxes=False,          # ← CAMBIO CLAVE: cada subplot maneja su propio eje
+        shared_yaxes=False,          # ← cada subplot maneja su propio eje
         subplot_titles=orden_meses,
         horizontal_spacing=0.06,
     )
@@ -252,14 +261,8 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
 
         show_legend = False
 
-        # ── Aplicar rango Y fijo en cada subplot ────────────────────────────
-        yaxis_key = "yaxis" if i == 1 else f"yaxis{i}"
-        fig.layout[yaxis_key].update(
-            range=y_range,
-            gridcolor="#f0f0f0",
-            tickformat=".1f",
-            showgrid=True,
-        )
+    # Aplicar rango Y fijo a todos los subplots con autorange=False
+    fig.update_yaxes(range=y_range, autorange=False, gridcolor="#f0f0f0", tickformat=".1f", showgrid=True)
 
     fig.update_layout(
         barmode="group",
