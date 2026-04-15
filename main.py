@@ -119,11 +119,6 @@ def cargar_datos():
                 except (ValueError, TypeError):
                     pass  # Mantener columnas no numéricas sin cambios
 
-        # Corregir escala de Sum 6 pliegues (475 → 47.5)
-        for col in ['Sum 6 plieg.', 'OBJTIVO SUM PLIEGUES']:
-            if col in df.columns:
-                df[col] = df[col] / 10
-
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
             "April": "Abril", "May": "Mayo", "June": "Junio",
