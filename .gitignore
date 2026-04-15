@@ -5,7 +5,7 @@
 *.key
 
 # Ignorar carpeta streamlit/ vieja (archivos movidos a raíz)
-streamlit/
+# streamlit/ - Comentado para permitir estructura que Streamlit Cloud necesita
 
 # Entornos virtuales
 venv/
