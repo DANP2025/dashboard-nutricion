@@ -104,8 +104,7 @@ def cargar_datos():
         # CORRECCIÓN CLAVE: usar UNFORMATTED_VALUE para obtener números reales
         # sin formato de Google Sheets (evita valores inflados por formato de celda)
         data = worksheet.get_all_records(
-            value_render_option='UNFORMATTED_VALUE',
-            date_time_render_option='FORMATTED_STRING'
+            value_render_option='UNFORMATTED_VALUE'
         )
 
         if not data:
