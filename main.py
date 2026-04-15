@@ -178,12 +178,20 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
             except:
                 colores_actual.append(color_actual)
 
+        # Nombres descriptivos para Composición Corporal
+        if col_actual == "M adiposa a bajar":
+            name_actual = "Adiposa a bajar"
+            name_objetivo = "Muscular a aumentar"
+        else:
+            name_actual = col_actual
+            name_objetivo = "Objetivo"
+
         # Barra: valor actual
         fig.add_trace(
             go.Bar(
                 x=jugadores,
                 y=df_mes[col_actual],
-                name=col_actual,
+                name=name_actual,
                 marker_color=colores_actual,
                 text=[f"{v:.1f}" if pd.notna(v) else "" for v in df_mes[col_actual]],
                 textposition="outside",
@@ -199,7 +207,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
             go.Bar(
                 x=jugadores,
                 y=df_mes[col_objetivo],
-                name="Objetivo",
+                name=name_objetivo,
                 marker_color=color_obj,
                 text=[f"{v:.1f}" if pd.notna(v) else "" for v in df_mes[col_objetivo]],
                 textposition="outside",
@@ -214,7 +222,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
 
     fig.update_layout(
         barmode="group",
-        height=320,
+        height=500,
         margin=dict(t=40, b=60, l=30, r=10),
         plot_bgcolor="white",
         paper_bgcolor="white",
@@ -269,7 +277,7 @@ def crear_grafico_radar(df_jugador, df_equipo):
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True,
             range=[0, max(max(vals_j), max(vals_e)) * 1.15])),
-        height=350,
+        height=500,
         margin=dict(t=40, b=20, l=30, r=30),
         legend=dict(orientation="h", y=-0.12),
         paper_bgcolor="white",
@@ -342,47 +350,46 @@ def main():
         return
 
     # ── Gráficos principales ─────────────────────────────────────────────────
-    col_g1, col_g2, col_g3 = st.columns(3)
+    st.markdown('<div class="chart-title">📊 Sumatoria 6 Pliegues vs Objetivo</div>',
+                unsafe_allow_html=True)
+    if "Sum 6 plieg." in df_f.columns and "OBJTIVO SUM PLIEGUES" in df_f.columns:
+        fig1 = crear_grafico_multiples(
+            df_f, "Sum 6 plieg.", "OBJTIVO SUM PLIEGUES",
+            "Pliegues vs Objetivo", "mm"
+        )
+        if fig1:
+            st.plotly_chart(fig1, width='stretch')
+    else:
+        st.warning("Columnas de pliegues no encontradas.")
 
-    with col_g1:
-        st.markdown('<div class="chart-title">📊 Sumatoria 6 Pliegues vs Objetivo</div>',
-                    unsafe_allow_html=True)
-        if "Sum 6 plieg." in df_f.columns and "OBJTIVO SUM PLIEGUES" in df_f.columns:
-            fig1 = crear_grafico_multiples(
-                df_f, "Sum 6 plieg.", "OBJTIVO SUM PLIEGUES",
-                "Pliegues vs Objetivo", "mm"
-            )
-            if fig1:
-                st.plotly_chart(fig1, use_container_width=True)
-        else:
-            st.warning("Columnas de pliegues no encontradas.")
+    st.divider()
 
-    with col_g2:
-        st.markdown('<div class="chart-title">📊 % Grasa Yuhasz vs Objetivo</div>',
-                    unsafe_allow_html=True)
-        if "%GRASA YUHASZ" in df_f.columns and "OBJETIVO YUHASZ" in df_f.columns:
-            fig2 = crear_grafico_multiples(
-                df_f, "%GRASA YUHASZ", "OBJETIVO YUHASZ",
-                "% Grasa vs Objetivo", "%"
-            )
-            if fig2:
-                st.plotly_chart(fig2, use_container_width=True)
-        else:
-            st.warning("Columnas de % grasa no encontradas.")
+    st.markdown('<div class="chart-title">📊 % Grasa Yuhasz vs Objetivo</div>',
+                unsafe_allow_html=True)
+    if "%GRASA YUHASZ" in df_f.columns and "OBJETIVO YUHASZ" in df_f.columns:
+        fig2 = crear_grafico_multiples(
+            df_f, "%GRASA YUHASZ", "OBJETIVO YUHASZ",
+            "% Grasa vs Objetivo", "%"
+        )
+        if fig2:
+            st.plotly_chart(fig2, width='stretch')
+    else:
+        st.warning("Columnas de % grasa no encontradas.")
 
-    with col_g3:
-        st.markdown('<div class="chart-title">📊 Composición Corporal</div>',
-                    unsafe_allow_html=True)
-        if "M musc a aumentar" in df_f.columns and "M adiposa a bajar" in df_f.columns:
-            fig3 = crear_grafico_multiples(
-                df_f, "M adiposa a bajar", "M musc a aumentar",
-                "Composición Corporal", "kg",
-                color_actual="#e63946", color_obj="#2a9d8f"
-            )
-            if fig3:
-                st.plotly_chart(fig3, use_container_width=True)
-        else:
-            st.warning("Columnas de composición no encontradas.")
+    st.divider()
+
+    st.markdown('<div class="chart-title">📊 Composición Corporal</div>',
+                unsafe_allow_html=True)
+    if "M musc a aumentar" in df_f.columns and "M adiposa a bajar" in df_f.columns:
+        fig3 = crear_grafico_multiples(
+            df_f, "M adiposa a bajar", "M musc a aumentar",
+            "Composición Corporal", "Masa (kg)",
+            color_actual="#e63946", color_obj="#2a9d8f"
+        )
+        if fig3:
+            st.plotly_chart(fig3, width='stretch')
+    else:
+        st.warning("Columnas de composición no encontradas.")
 
     # ── Radar (primer jugador seleccionado) ──────────────────────────────────
     if jugadores_sel:
@@ -394,9 +401,7 @@ def main():
                         unsafe_allow_html=True)
             fig_radar = crear_grafico_radar(df_jugador, df_f)
             if fig_radar:
-                col_r1, col_r2, col_r3 = st.columns([1, 2, 1])
-                with col_r2:
-                    st.plotly_chart(fig_radar, use_container_width=True)
+                st.plotly_chart(fig_radar, width='stretch')
 
     # ── Controles de refresco ─────────────────────────────────────────────────
     st.markdown("---")
