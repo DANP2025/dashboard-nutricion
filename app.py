@@ -4,388 +4,423 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import gspread
 from google.oauth2.service_account import Credentials
-import datetime
+import base64
 from datetime import datetime as dt
 
-# Configuración de la página
-st.set_page_config(layout="wide", page_title="Dashboard Nutrición", page_icon=":bar_chart:")
+# ── Configuración de página ──────────────────────────────────────────────────
+st.set_page_config(layout="wide", page_title="Dashboard Nutrición", page_icon="🥗")
 
-# Función para conectar a Google Sheets
-def conectar_google_sheets():
+# ── CSS global ───────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+    .stApp { background-color: #f0f2f6; }
+    .block-container { padding-top: 1rem; padding-bottom: 1rem; }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+
+    /* Tarjeta de filtros */
+    .filtros-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 16px;
+    }
+
+    /* Chips de multiselect */
+    .stMultiSelect [data-baseweb="tag"] {
+        background-color: #1a3a5c !important;
+        border-radius: 6px !important;
+    }
+
+    /* Gráficos con tarjeta */
+    [data-testid="stPlotlyChart"] {
+        background: white;
+        border-radius: 12px;
+        padding: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+
+    /* Botón refrescar */
+    .stButton > button {
+        background-color: #1a3a5c;
+        color: white;
+        border-radius: 8px;
+        border: none;
+        padding: 8px 24px;
+        font-weight: 600;
+    }
+    .stButton > button:hover {
+        background-color: #2c5f8a;
+        color: white;
+    }
+
+    /* Título de sección de gráficos */
+    .chart-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1a3a5c;
+        margin-bottom: 4px;
+        padding-left: 4px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def get_image_base64(path):
     try:
-        # Verificar que los secrets estén disponibles
-        if "gcp_service_account" not in st.secrets:
-            st.error("Error: No se encontraron las credenciales de Google Cloud en st.secrets")
-            return None
-        
-        scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        
-        # Crear credenciales con diagnóstico
-        try:
-            creds = Credentials.from_service_account_info(
-                st.secrets["gcp_service_account"],
-                scopes=scopes
-            )
-        except Exception as cred_error:
-            st.error(f"Error creando credenciales: {cred_error}")
-            st.error("Verifica que todos los campos en secrets.toml estén correctos")
-            return None
-        
-        # Autorizar cliente gspread
-        try:
-            client = gspread.authorize(creds)
-            return client
-        except Exception as auth_error:
-            st.error(f"Error autorizando gspread: {auth_error}")
-            st.error("Verifica que la Service Account tenga los permisos correctos")
-            return None
-            
-    except Exception as e:
-        st.error(f"Error general conectando a Google Sheets: {e}")
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except:
         return None
 
-# Función para cargar datos
+
+def conectar_google_sheets():
+    try:
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"], scopes=scopes
+        )
+        return gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"Error conectando a Google Sheets: {e}")
+        return None
+
+
+@st.cache_data(ttl=300)
 def cargar_datos():
     client = conectar_google_sheets()
     if client is None:
         return None
-    
     try:
-        # Abrir el spreadsheet usando URL completa
-        try:
-            # URL del Google Sheet nativo - NUEVA URL
-            spreadsheet_url = "https://docs.google.com/spreadsheets/d/1Q1k4G55SiT0YDIBE5SFT0ktap16zsvv8sDszmL5Br2Y/edit"
-            
-            # Intentar usar URL completa primero
-            try:
-                if "TU_SPREADSHEET_ID" not in spreadsheet_url:
-                    # Usar URL completa
-                    spreadsheet = client.open_by_url(spreadsheet_url)
-                    st.success("Conexión exitosa al Google Sheet por URL")
-                else:
-                    raise ValueError("URL no configurada")
-            except:
-                # Fallback: usar nombre del spreadsheet
-                spreadsheet = client.open("Base_datos_nutricion")
-                st.success("Conexión exitosa al Google Sheet 'Base_datos_nutricion'")
-        except Exception as sheet_error:
-            st.error(f"Error abriendo Google Sheet 'Base_datos_nutricion': {sheet_error}")
-            st.error("Verifica que:")
-            st.error("1. El Google Sheet 'Base_datos_nutricion' exista")
-            st.error("2. La Service Account tenga acceso al documento")
-            st.error("3. El nombre del documento sea exactamente 'Base_datos_nutricion'")
-            return None
-        
-        # Buscar la pestaña 'Nutricion'
-        try:
-            worksheet = spreadsheet.worksheet("Nutricion")
-            st.success("Pestaña 'Nutricion' encontrada exitosamente")
-        except Exception as worksheet_error:
-            st.error(f"Error encontrando pestaña 'Nutricion': {worksheet_error}")
-            st.error("Verifica que:")
-            st.error("1. La pestaña 'Nutricion' exista en el documento")
-            st.error("2. El nombre de la pestaña sea exactamente 'Nutricion'")
-            # Mostrar pestañas disponibles para diagnóstico
-            try:
-                worksheets = spreadsheet.worksheets()
-                available_sheets = [ws.title for ws in worksheets]
-                st.error(f"Pestañas disponibles: {available_sheets}")
-            except:
-                pass
-            return None
-        
-        # Obtener datos
-        try:
-            data = worksheet.get_all_records()
-            if not data:
-                st.error("La pestaña 'Nutricion' está vacía o no tiene datos")
-                return None
-            
-            df = pd.DataFrame(data)
-            st.success(f"Datos cargados exitosamente: {len(df)} filas")
-            
-        except Exception as data_error:
-            st.error(f"Error obteniendo datos de la pestaña: {data_error}")
-            st.error("Verifica que la primera fila tenga encabezados")
-            return None
-        
-        # Convertir 'Fecha de Eval.' a datetime
-        try:
-            df['Fecha de Eval.'] = pd.to_datetime(df['Fecha de Eval.'], errors='coerce')
-            
-            # Crear columna 'Mes/Año'
-            df['Mes/Año'] = df['Fecha de Eval.'].dt.strftime('%B %Y')
-            
-            # Traducir meses a español si es necesario
-            meses_es = {
-                'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo',
-                'April': 'Abril', 'May': 'Mayo', 'June': 'Junio',
-                'July': 'Julio', 'August': 'Agosto', 'September': 'Septiembre',
-                'October': 'Octubre', 'November': 'Noviembre', 'December': 'Diciembre'
-            }
-            
-            for eng, esp in meses_es.items():
-                df['Mes/Año'] = df['Mes/Año'].str.replace(eng, esp)
-            
-            return df
-            
-        except Exception as process_error:
-            st.error(f"Error procesando fechas: {process_error}")
-            st.error("Verifica que exista la columna 'Fecha de Eval.'")
-            return None
-            
+        spreadsheet = client.open("Base_datos_nutricion")
+        worksheet = spreadsheet.worksheet("Nutricion")
+        data = worksheet.get_all_records()
+        df = pd.DataFrame(data)
+
+        df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
+
+        meses_es = {
+            "January": "Enero", "February": "Febrero", "March": "Marzo",
+            "April": "Abril", "May": "Mayo", "June": "Junio",
+            "July": "Julio", "August": "Agosto", "September": "Septiembre",
+            "October": "Octubre", "November": "Noviembre", "December": "Diciembre",
+        }
+        df["Mes/Año"] = df["Fecha de Eval."].dt.strftime("%B %Y")
+        for eng, esp in meses_es.items():
+            df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
+
+        return df
     except Exception as e:
-        st.error(f"Error general cargando datos: {e}")
+        st.error(f"Error cargando datos: {e}")
         return None
 
-# Función para crear gráfico de barras Actual vs Objetivo
-def crear_grafico_comparacion(df_actual, df_objetivo, titulo, y_title, nombre_actual, nombre_objetivo):
-    fig = go.Figure()
-    
-    # Barra actual (Rojo)
-    fig.add_trace(go.Bar(
-        x=df_actual['Jugador'],
-        y=df_actual[nombre_actual],
-        name='Actual',
-        marker_color='red',
-        text=df_actual[nombre_actual],
-        textposition='auto',
-        texttemplate='%{y:.1f}'
-    ))
-    
-    # Barra objetivo (Verde)
-    fig.add_trace(go.Bar(
-        x=df_objetivo['Jugador'],
-        y=df_objetivo[nombre_objetivo],
-        name='Objetivo',
-        marker_color='green',
-        text=df_objetivo[nombre_objetivo],
-        textposition='auto',
-        texttemplate='%{y:.1f}'
-    ))
-    
+
+# ── Gráfico de pequeños múltiplos ────────────────────────────────────────────
+def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
+                             ytitle, color_actual="#e63946", color_obj="#2a9d8f"):
+    """
+    Crea un gráfico de barras agrupadas con un subplot (pequeño múltiplo)
+    por cada mes, ordenados cronológicamente.
+    """
+    # Ordenar meses cronológicamente
+    orden_meses = (
+        df[["Mes/Año", "Fecha de Eval."]]
+        .dropna()
+        .drop_duplicates("Mes/Año")
+        .sort_values("Fecha de Eval.")["Mes/Año"]
+        .tolist()
+    )
+
+    n_meses = len(orden_meses)
+    if n_meses == 0:
+        return None
+
+    fig = make_subplots(
+        rows=1,
+        cols=n_meses,
+        shared_yaxes=True,
+        subplot_titles=orden_meses,
+        horizontal_spacing=0.04,
+    )
+
+    show_legend = True  # Solo mostrar leyenda en el primer subplot
+
+    for i, mes in enumerate(orden_meses, start=1):
+        df_mes = df[df["Mes/Año"] == mes].copy()
+        jugadores = df_mes["Jugador"].tolist()
+
+        # Determinar color de cada barra actual según si supera objetivo
+        colores_actual = []
+        for _, row in df_mes.iterrows():
+            try:
+                v = float(row[col_actual])
+                o = float(row[col_objetivo])
+                colores_actual.append(color_actual if v > o else "#2a9d8f")
+            except:
+                colores_actual.append(color_actual)
+
+        # Barra: valor actual
+        fig.add_trace(
+            go.Bar(
+                x=jugadores,
+                y=df_mes[col_actual],
+                name=col_actual,
+                marker_color=colores_actual,
+                text=[f"{v:.1f}" if pd.notna(v) else "" for v in df_mes[col_actual]],
+                textposition="outside",
+                textfont=dict(size=10),
+                showlegend=show_legend,
+                legendgroup="actual",
+            ),
+            row=1, col=i,
+        )
+
+        # Barra: objetivo (siempre verde oscuro)
+        fig.add_trace(
+            go.Bar(
+                x=jugadores,
+                y=df_mes[col_objetivo],
+                name="Objetivo",
+                marker_color=color_obj,
+                text=[f"{v:.1f}" if pd.notna(v) else "" for v in df_mes[col_objetivo]],
+                textposition="outside",
+                textfont=dict(size=10),
+                showlegend=show_legend,
+                legendgroup="objetivo",
+            ),
+            row=1, col=i,
+        )
+
+        show_legend = False  # Solo en el primer subplot
+
     fig.update_layout(
-        title=titulo,
-        xaxis_title="Jugador",
-        yaxis_title=y_title,
-        barmode='group',
-        height=400,
-        showlegend=True,
+        barmode="group",
+        height=320,
+        margin=dict(t=40, b=60, l=30, r=10),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(family="Arial, sans-serif", size=11),
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.02,
+            y=1.08,
             xanchor="right",
-            x=1
-        )
-    )
-    
-    return fig
-
-# Función para crear gráfico de radar
-def crear_grafico_radar(df_jugador, df_equipo):
-    fig = go.Figure()
-    
-    # Pliegues disponibles
-    pliegues = ['Plieg 1', 'Plieg 2', 'Plieg 3', 'Plieg 4', 'Plieg 5', 'Plieg 6']
-    
-    # Filtrar columnas de pliegues que existen
-    pliegues_disponibles = [p for p in pliegues if p in df_jugador.columns]
-    
-    if not pliegues_disponibles:
-        return None
-    
-    # Datos del jugador
-    valores_jugador = [df_jugador[p].iloc[0] if pd.notna(df_jugador[p].iloc[0]) else 0 for p in pliegues_disponibles]
-    
-    # Datos del equipo (promedio)
-    valores_equipo = []
-    for p in pliegues_disponibles:
-        if p in df_equipo.columns:
-            valores_equipo.append(df_equipo[p].mean())
-        else:
-            valores_equipo.append(0)
-    
-    # Cerrar el gráfico de radar
-    valores_jugador.append(valores_jugador[0])
-    valores_equipo.append(valores_equipo[0])
-    pliegues_disponibles.append(pliegues_disponibles[0])
-    
-    # Añadir traza del jugador
-    fig.add_trace(go.Scatterpolar(
-        r=valores_jugador,
-        theta=pliegues_disponibles,
-        fill='toself',
-        name='Jugador',
-        line_color='blue',
-        fillcolor='rgba(0, 123, 255, 0.25)'
-    ))
-    
-    # Añadir traza del equipo
-    fig.add_trace(go.Scatterpolar(
-        r=valores_equipo,
-        theta=pliegues_disponibles,
-        fill='toself',
-        name='Promedio Equipo',
-        line_color='orange',
-        fillcolor='rgba(255, 165, 0, 0.25)'
-    ))
-    
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, max(max(valores_jugador), max(valores_equipo)) * 1.1]
-            )
+            x=1,
+            bgcolor="rgba(255,255,255,0.85)",
+            bordercolor="#dee2e6",
+            borderwidth=1,
         ),
-        title="Comparación de Pliegues: Jugador vs Equipo",
-        height=500
+        yaxis=dict(gridcolor="#f0f0f0", tickformat=".1f"),
     )
-    
+
+    # Rotar etiquetas del eje X en todos los subplots
+    fig.update_xaxes(tickangle=-40, tickfont=dict(size=9))
+
+    # Subtítulos de meses en negrita
+    for ann in fig.layout.annotations:
+        ann.update(font=dict(size=12, color="#1a3a5c"), y=ann.y + 0.02)
+
     return fig
 
-# Función principal
+
+# ── Gráfico de radar ─────────────────────────────────────────────────────────
+def crear_grafico_radar(df_jugador, df_equipo):
+    pliegues = ["Plieg 1", "Plieg 2", "Plieg 3", "Plieg 4", "Plieg 5", "Plieg 6"]
+    disp = [p for p in pliegues if p in df_jugador.columns]
+    if not disp:
+        return None
+
+    vals_j = [float(df_jugador[p].iloc[0]) if pd.notna(df_jugador[p].iloc[0]) else 0 for p in disp]
+    vals_e = [df_equipo[p].mean() if p in df_equipo.columns else 0 for p in disp]
+
+    # Cerrar polígono
+    vals_j.append(vals_j[0])
+    vals_e.append(vals_e[0])
+    cats = disp + [disp[0]]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=vals_j, theta=cats, fill="toself", name="Jugador",
+        line_color="#1a3a5c", fillcolor="rgba(26,58,92,0.2)"
+    ))
+    fig.add_trace(go.Scatterpolar(
+        r=vals_e, theta=cats, fill="toself", name="Promedio Equipo",
+        line_color="#e63946", fillcolor="rgba(230,57,70,0.15)"
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True,
+            range=[0, max(max(vals_j), max(vals_e)) * 1.15])),
+        height=350,
+        margin=dict(t=40, b=20, l=30, r=30),
+        legend=dict(orientation="h", y=-0.12),
+        paper_bgcolor="white",
+        font=dict(family="Arial, sans-serif", size=11),
+    )
+    return fig
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
 def main():
-    # Logo y título en contenedor
-    with st.container():
-        col1, col2, col1 = st.columns([1, 2, 1])
-        with col2:
-            try:
-                st.image("punto_referencia.png", width=300)
-            except:
-                st.warning("No se encontró la imagen punto_referencia.png")
-        
-        st.title("Dashboard de Nutrición Profesional")
-        st.markdown("---")
-    
-    # Cargar datos
+    # ── Encabezado ──────────────────────────────────────────────────────────
+    img_b64 = get_image_base64("punto_referencia.png")
+    img_src = f"data:image/png;base64,{img_b64}" if img_b64 else ""
+
+    st.markdown(f"""
+    <div style="display:flex; align-items:center; gap:18px;
+                background:white; border-radius:12px;
+                padding:12px 20px; margin-bottom:14px;
+                box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        {'<img src="' + img_src + '" style="height:55px; object-fit:contain;">' if img_src else ''}
+        <div>
+            <div style="font-size:1.4rem; font-weight:800; color:#1a3a5c; line-height:1.2;">
+                Dashboard de Nutrición Profesional
+            </div>
+            <div style="font-size:0.85rem; color:#6c757d;">
+                Monitoreo y seguimiento de composición corporal
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Cargar datos ─────────────────────────────────────────────────────────
     df = cargar_datos()
-    
     if df is None or df.empty:
-        st.error("No se pudieron cargar los datos del Google Sheet")
+        st.error("No se pudieron cargar los datos del Google Sheet.")
         return
-    
-    # Filtros superiores con st.pills
-    with st.container():
-        st.subheader("Filtros")
-        
-        # Obtener posiciones únicas
-        posiciones = df['Posicion'].dropna().unique().tolist()
-        if not posiciones:
-            posiciones = ['Todas']
-        
-        # Selector de posición con pills
-        posicion_seleccionada = st.pills(
-            "Seleccionar Posición",
-            options=posiciones,
-            selection_mode="multi",
-            default=posiciones[:1] if posiciones else []
+
+    # ── Filtros dentro del dashboard ─────────────────────────────────────────
+    st.markdown('<div class="filtros-card">', unsafe_allow_html=True)
+    st.markdown("**🔍 Filtros de análisis**")
+
+    col_f1, col_f2, col_f3 = st.columns(3)
+
+    with col_f1:
+        posiciones = sorted(df["Posicion"].dropna().unique().tolist())
+        posicion_sel = st.multiselect(
+            "🏃 Posición", options=posiciones, default=posiciones,
+            placeholder="Todas las posiciones..."
         )
-        
-        # Obtener meses únicos
-        meses_disponibles = sorted(df['Mes/Año'].dropna().unique().tolist())
-        if meses_disponibles:
-            mes_seleccionado = st.selectbox(
-                "Seleccionar Mes",
-                options=meses_disponibles,
-                index=len(meses_disponibles) - 1 if meses_disponibles else 0
-            )
-        else:
-            mes_seleccionado = None
-        
-        # Obtener jugadores únicos
-        jugadores_disponibles = df['Jugador'].dropna().unique().tolist()
-        if jugadores_disponibles:
-            jugador_seleccionado = st.selectbox(
-                "Seleccionar Jugador",
-                options=jugadores_disponibles
-            )
-        else:
-            jugador_seleccionado = None
-    
-    # Filtrar datos
-    df_filtrado = df.copy()
-    
-    if posicion_seleccionada:
-        df_filtrado = df_filtrado[df_filtrado['Posicion'].isin(posicion_seleccionada)]
-    
-    if mes_seleccionado:
-        df_filtrado = df_filtrado[df_filtrado['Mes/Año'] == mes_seleccionado]
-    
-    if df_filtrado.empty:
-        st.warning("No hay datos con los filtros seleccionados")
+
+    with col_f2:
+        # Ordenar meses cronológicamente (por fecha real, no alfabético)
+        orden_ref = (
+            df[["Mes/Año", "Fecha de Eval."]]
+            .dropna()
+            .drop_duplicates("Mes/Año")
+            .sort_values("Fecha de Eval.")
+        )
+        meses_disponibles = orden_ref["Mes/Año"].tolist()
+        meses_sel = st.multiselect(
+            "📅 Mes / Año", options=meses_disponibles,
+            default=[meses_disponibles[-1]] if meses_disponibles else [],
+            placeholder="Seleccionar mes(es)..."
+        )
+
+    with col_f3:
+        jugadores = sorted(df["Jugador"].dropna().unique().tolist())
+        jugadores_sel = st.multiselect(
+            "👤 Jugador", options=jugadores, default=jugadores,
+            placeholder="Todos los jugadores..."
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Aplicar filtros ───────────────────────────────────────────────────────
+    df_f = df.copy()
+    if posicion_sel:
+        df_f = df_f[df_f["Posicion"].isin(posicion_sel)]
+    if meses_sel:
+        df_f = df_f[df_f["Mes/Año"].isin(meses_sel)]
+    if jugadores_sel:
+        df_f = df_f[df_f["Jugador"].isin(jugadores_sel)]
+
+    if df_f.empty:
+        st.warning("⚠️ No hay datos con los filtros seleccionados.")
         return
-    
-    st.markdown("---")
-    
-    # Gráficos principales en contenedores
-    with st.container():
-        st.subheader("Análisis de Composición Corporal")
-        
-        # Gráfico 1: % Grasa vs Objetivo
-        if '%GRASA YUHASZ' in df_filtrado.columns and 'OBJETIVO YUHASZ' in df_filtrado.columns:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig_grasa = crear_grafico_comparacion(
-                    df_filtrado, df_filtrado,
-                    "% Grasa Corporal vs Objetivo",
-                    "% Grasa",
-                    '%GRASA YUHASZ',
-                    'OBJETIVO YUHASZ'
-                )
-                st.plotly_chart(fig_grasa, use_container_width=True)
-            
-            # Gráfico 2: Pliegues vs Objetivo
-            with col2:
-                if 'Sum 6 plieg.' in df_filtrado.columns and 'OBJTIVO SUM PLIEGUES' in df_filtrado.columns:
-                    fig_pliegues = crear_grafico_comparacion(
-                        df_filtrado, df_filtrado,
-                        "Sumatoria de Pliegues vs Objetivo",
-                        "Sumatoria (mm)",
-                        'Sum 6 plieg.',
-                        'OBJTIVO SUM PLIEGUES'
-                    )
-                    st.plotly_chart(fig_pliegues, use_container_width=True)
-        else:
-            st.error("No se encontraron las columnas necesarias para los gráficos de comparación")
-    
-    # Gráfico de Masa Adiposa y Muscular
-    with st.container():
-        st.subheader("Análisis de Masa Corporal")
-        
-        if 'M adiposa a bajar' in df_filtrado.columns and 'M musc a aumentar' in df_filtrado.columns:
-            fig_masa = crear_grafico_comparacion(
-                df_filtrado, df_filtrado,
-                "Masa Adiposa vs Masa Muscular",
-                "Masa (kg)",
-                'M adiposa a bajar',
-                'M musc a aumentar'
+
+    # ── Gráficos principales ─────────────────────────────────────────────────
+    col_g1, col_g2, col_g3 = st.columns(3)
+
+    with col_g1:
+        st.markdown('<div class="chart-title">📊 Sumatoria 6 Pliegues vs Objetivo</div>',
+                    unsafe_allow_html=True)
+        if "Sum 6 plieg." in df_f.columns and "OBJTIVO SUM PLIEGUES" in df_f.columns:
+            fig1 = crear_grafico_multiples(
+                df_f, "Sum 6 plieg.", "OBJTIVO SUM PLIEGUES",
+                "Pliegues vs Objetivo", "mm"
             )
-            st.plotly_chart(fig_masa, use_container_width=True)
-    
-    # Gráfico de Radar para jugador seleccionado
-    if jugador_seleccionado:
-        with st.container():
-            st.subheader(f"Análisis Detallado: {jugador_seleccionado}")
-            
-            # Datos del jugador seleccionado
-            df_jugador = df_filtrado[df_filtrado['Jugador'] == jugador_seleccionado]
-            
-            if not df_jugador.empty:
-                # Gráfico de radar
-                fig_radar = crear_grafico_radar(df_jugador, df_filtrado)
-                if fig_radar:
+            if fig1:
+                st.plotly_chart(fig1, use_container_width=True)
+        else:
+            st.warning("Columnas de pliegues no encontradas.")
+
+    with col_g2:
+        st.markdown('<div class="chart-title">📊 % Grasa Yuhasz vs Objetivo</div>',
+                    unsafe_allow_html=True)
+        if "%GRASA YUHASZ" in df_f.columns and "OBJETIVO YUHASZ" in df_f.columns:
+            fig2 = crear_grafico_multiples(
+                df_f, "%GRASA YUHASZ", "OBJETIVO YUHASZ",
+                "% Grasa vs Objetivo", "%"
+            )
+            if fig2:
+                st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.warning("Columnas de % grasa no encontradas.")
+
+    with col_g3:
+        st.markdown('<div class="chart-title">📊 Composición Corporal</div>',
+                    unsafe_allow_html=True)
+        if "M musc a aumentar" in df_f.columns and "M adiposa a bajar" in df_f.columns:
+            fig3 = crear_grafico_multiples(
+                df_f, "M adiposa a bajar", "M musc a aumentar",
+                "Composición Corporal", "kg",
+                color_actual="#e63946", color_obj="#2a9d8f"
+            )
+            if fig3:
+                st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.warning("Columnas de composición no encontradas.")
+
+    # ── Radar (primer jugador seleccionado) ──────────────────────────────────
+    if jugadores_sel:
+        jugador_radar = jugadores_sel[0]
+        df_jugador = df_f[df_f["Jugador"] == jugador_radar]
+        if not df_jugador.empty:
+            st.markdown("---")
+            st.markdown(f'<div class="chart-title">🕸️ Perfil de Pliegues: {jugador_radar}</div>',
+                        unsafe_allow_html=True)
+            fig_radar = crear_grafico_radar(df_jugador, df_f)
+            if fig_radar:
+                col_r1, col_r2, col_r3 = st.columns([1, 2, 1])
+                with col_r2:
                     st.plotly_chart(fig_radar, use_container_width=True)
-    
-    # Tabla de datos
-    with st.container():
-        st.subheader("Datos Detallados")
-        st.dataframe(df_filtrado, use_container_width=True)
-    
-    # Botón de refresco
-    if st.button("Refrescar Datos"):
+
+    # ── Controles de refresco ─────────────────────────────────────────────────
+    st.markdown("---")
+    col_btn, col_timer = st.columns([1, 3])
+    with col_btn:
+        if st.button("🔄 Refrescar Datos"):
+            st.cache_data.clear()
+            st.rerun()
+
+    if "last_refresh" not in st.session_state:
+        st.session_state.last_refresh = dt.now()
+
+    elapsed = (dt.now() - st.session_state.last_refresh).total_seconds()
+    if elapsed > 300:
+        st.session_state.last_refresh = dt.now()
+        st.cache_data.clear()
         st.rerun()
+
+    with col_timer:
+        remaining = max(0, int(300 - elapsed))
+        st.caption(f"⏱️ Próximo refresco automático en {remaining} segundos")
+
 
 if __name__ == "__main__":
     main()
