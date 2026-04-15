@@ -118,11 +118,21 @@ def cargar_datos():
                 except (ValueError, TypeError):
                     pass  # Mantener columnas no numéricas sin cambios
 
-        # Convertir columnas específicas a numérico y dividir por 100
-        columnas_a_dividir = ['Sum 6 plieg.', 'OBJTIVO SUM PLIEGUES', '%GRASA YUHASZ', 'OBJETIVO YUHASZ']
-        for col in columnas_a_dividir:
+        # Aplicar lógica específica de división para cada métrica
+        # Sum 6 plieg. y OBJTIVO SUM PLIEGUES: dividir por 10 (4.8 → 48, asumiendo origen 480)
+        for col in ['Sum 6 plieg.', 'OBJTIVO SUM PLIEGUES']:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce') / 100
+                df[col] = pd.to_numeric(df[col], errors='coerce') / 10
+
+        # %GRASA YUHASZ y OBJETIVO YUHASZ: dividir por 1000 (7572.3 → 7.57)
+        for col in ['%GRASA YUHASZ', 'OBJETIVO YUHASZ']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce') / 1000
+
+        # M musc a aumentar y M adiposa a bajar: dividir por 1,000,000,000 si vienen como timestamp/entero largo
+        for col in ['M musc a aumentar', 'M adiposa a bajar']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce') / 1000000000
 
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
@@ -246,7 +256,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
             bordercolor="#dee2e6",
             borderwidth=1,
         ),
-        yaxis=dict(gridcolor="#f0f0f0", tickformat=".1f", range=[0, None]),
+        yaxis=dict(gridcolor="#f0f0f0", tickformat=".1f"),
     )
 
     # Rotar etiquetas del eje X en todos los subplots
