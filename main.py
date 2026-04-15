@@ -114,29 +114,36 @@ def cargar_datos():
         # Convertir fecha
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
-        # Limpieza infalible para formato latino (puntos como separadores de miles, comas como decimales)
+        # Limpieza inteligente para formato latino vs decimal estándar
         cols_excluir = {"Fecha de Eval.", "Jugador", "Posicion"}
         for col in df.columns:
             if col not in cols_excluir:
                 try:
-                    # Primero eliminar puntos (separadores de miles en formato latino)
-                    # Luego reemplazar comas por puntos decimales
-                    df[col] = df[col].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
-                    # Convertir a numérico y usar .fillna(0.0) para valores vacíos
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-                except Exception:
-                    pass
+                    # Función de limpieza inteligente
+                    def limpiar_valor(val):
+                        if pd.isna(val):
+                            return val
+                        # Si ya es numérico, devolverlo
+                        if isinstance(val, (int, float)):
+                            return val
+                        # Si es string, analizar formato
+                        val_str = str(val).strip()
+                        # Si tiene coma pero no punto, es formato latino (coma como decimal)
+                        if ',' in val_str and '.' not in val_str:
+                            return val_str.replace(',', '.')
+                        # Si tiene punto pero no coma, es formato estándar (punto como decimal)
+                        elif '.' in val_str and ',' not in val_str:
+                            return val_str
+                        # Si tiene ambos, eliminar puntos (separadores de miles) y reemplazar comas por puntos
+                        elif '.' in val_str and ',' in val_str:
+                            return val_str.replace('.', '').replace(',', '.')
+                        # Si no tiene ninguno, devolver tal cual
+                        else:
+                            return val_str
 
-        # Medida de seguridad: dividir por 10 si valores están fuera de rango esperado
-        for col in df.columns:
-            if col not in cols_excluir:
-                try:
-                    # Si es columna de Sumatoria y valor > 250, dividir por 10
-                    if 'Sum' in col or 'SUM' in col:
-                        df[col] = df[col].apply(lambda x: x / 10 if x > 250 else x)
-                    # Si es columna de % Grasa y valor > 50, dividir por 10
-                    elif 'GRASA' in col or 'Grasa' in col or 'grasa' in col:
-                        df[col] = df[col].apply(lambda x: x / 10 if x > 50 else x)
+                    df[col] = df[col].apply(limpiar_valor)
+                    # Convertir a numérico con errors='coerce' y usar .fillna(0.0)
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
                 except Exception:
                     pass
 
@@ -232,12 +239,13 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
                 y=y_actual,
                 name=name_actual,
                 marker_color=color_actual,
-                text=[f"{v:.1f}" if pd.notna(v) else "" for v in y_actual],
+                text=[f"{v:.1f}" if pd.notna(v) and v != 0 else "" for v in y_actual],
                 textposition="inside",
                 textfont=dict(size=10, color="white"),
                 showlegend=show_legend,
                 legendgroup="actual",
                 cliponaxis=False,
+                texttemplate='%{y:.1f}',
             ),
             row=1, col=i,
         )
@@ -249,25 +257,33 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
                 y=y_obj,
                 name=name_objetivo,
                 marker_color=color_obj,
-                text=[f"{v:.1f}" if pd.notna(v) else "" for v in y_obj],
+                text=[f"{v:.1f}" if pd.notna(v) and v != 0 else "" for v in y_obj],
                 textposition="inside",
                 textfont=dict(size=10, color="white"),
                 showlegend=show_legend,
                 legendgroup="objetivo",
                 cliponaxis=False,
+                texttemplate='%{y:.1f}',
             ),
             row=1, col=i,
         )
 
         show_legend = False
 
-    # Aplicar rango Y fijo a todos los subplots con autorange=False
-    fig.update_yaxes(range=y_range, autorange=False, gridcolor="#f0f0f0", tickformat=".1f", showgrid=True)
+    # Aplicar rango Y fijo a todos los subplots con autorange=False y formato 1 decimal
+    fig.update_yaxes(
+        range=y_range,
+        autorange=False,
+        gridcolor="#f0f0f0",
+        tickformat=".1f",
+        showgrid=True,
+        exponentformat="none"  # Evitar notación científica
+    )
 
     fig.update_layout(
         barmode="group",
         height=420,
-        margin=dict(t=50, b=70, l=40, r=10),
+        margin=dict(t=50, b=80, l=40, r=10),  # Aumentar margen inferior para evitar corte
         plot_bgcolor="white",
         paper_bgcolor="white",
         font=dict(family="Arial, sans-serif", size=11),
