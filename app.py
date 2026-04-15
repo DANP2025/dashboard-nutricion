@@ -82,10 +82,20 @@ def conectar_google_sheets():
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
         ]
+        # Verificar que los secrets estén disponibles
+        if "gcp_service_account" not in st.secrets:
+            st.error("Error: No se encontraron las credenciales de Google Cloud en st.secrets")
+            st.error("Por favor configura las credenciales en los secrets de Streamlit Cloud")
+            return None
+        
         creds = Credentials.from_service_account_info(
             st.secrets["gcp_service_account"], scopes=scopes
         )
         return gspread.authorize(creds)
+    except KeyError as e:
+        st.error(f"Error: Falta configuración de secrets: {e}")
+        st.error("Por favor configura las credenciales en los secrets de Streamlit Cloud")
+        return None
     except Exception as e:
         st.error(f"Error conectando a Google Sheets: {e}")
         return None
@@ -100,6 +110,11 @@ def cargar_datos():
         spreadsheet = client.open("Base_datos_nutricion")
         worksheet = spreadsheet.worksheet("Nutricion")
         data = worksheet.get_all_records()
+        
+        if not data:
+            st.error("La hoja de cálculo está vacía o no tiene datos")
+            return None
+            
         df = pd.DataFrame(data)
 
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
@@ -115,6 +130,14 @@ def cargar_datos():
             df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
 
         return df
+    except gspread.SpreadsheetNotFound:
+        st.error("Error: No se encontró el spreadsheet 'Base_datos_nutricion'")
+        st.error("Verifica que el nombre del spreadsheet sea correcto y que la Service Account tenga acceso")
+        return None
+    except gspread.WorksheetNotFound:
+        st.error("Error: No se encontró la hoja 'Nutricion'")
+        st.error("Verifica que la hoja exista en el spreadsheet")
+        return None
     except Exception as e:
         st.error(f"Error cargando datos: {e}")
         return None
