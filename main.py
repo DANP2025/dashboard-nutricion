@@ -169,9 +169,6 @@ def cargar_datos():
         for eng, esp in meses_es.items():
             df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
 
-        # Filtrar Mes/Año inválidos (como Enero 1970 de fechas nulas)
-        df = df[df["Mes/Año"].notna() & (df["Mes/Año"] != "Enero 1970")]
-
         return df
 
     except gspread.SpreadsheetNotFound:
