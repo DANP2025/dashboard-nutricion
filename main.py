@@ -4,7 +4,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import gspread
 from google.oauth2.service_account import Credentials
-import base64
 from datetime import datetime as dt
 
 # ── Configuración de página ──────────────────────────────────────────────────
@@ -68,14 +67,6 @@ st.markdown("""
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-def get_image_base64(path):
-    try:
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except:
-        return None
-
-
 def conectar_google_sheets():
     try:
         scopes = [
@@ -290,25 +281,9 @@ def crear_grafico_radar(df_jugador, df_equipo):
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
     # ── Encabezado ──────────────────────────────────────────────────────────
-    img_b64 = get_image_base64("punto_referencia.png")
-    img_src = f"data:image/png;base64,{img_b64}" if img_b64 else ""
-
-    st.markdown(f"""
-    <div style="display:flex; align-items:center; gap:18px;
-                background:white; border-radius:12px;
-                padding:12px 20px; margin-bottom:14px;
-                box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        {'<img src="' + img_src + '" style="height:55px; object-fit:contain;">' if img_src else ''}
-        <div>
-            <div style="font-size:1.4rem; font-weight:800; color:#1a3a5c; line-height:1.2;">
-                Dashboard de Nutrición Profesional
-            </div>
-            <div style="font-size:0.85rem; color:#6c757d;">
-                Monitoreo y seguimiento de composición corporal
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.image("punto_referencia.png", width=400)
+    st.title("Dashboard de Nutrición Profesional")
+    st.caption("Monitoreo y seguimiento de composición corporal")
 
     # ── Cargar datos ─────────────────────────────────────────────────────────
     df = cargar_datos()
