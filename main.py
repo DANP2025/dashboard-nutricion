@@ -110,6 +110,14 @@ def cargar_datos():
 
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
+        # Convertir comas a puntos en columnas numéricas
+        for col in df.columns:
+            if col != "Fecha de Eval." and col != "Jugador" and col != "Posicion":
+                try:
+                    df[col] = df[col].astype(str).str.replace(',', '.').astype(float)
+                except (ValueError, TypeError):
+                    pass  # Mantener columnas no numéricas sin cambios
+
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
             "April": "Abril", "May": "Mayo", "June": "Junio",
@@ -141,6 +149,11 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
     Crea un gráfico de barras agrupadas con un subplot (pequeño múltiplo)
     por cada mes, ordenados cronológicamente.
     """
+    # Ajuste específico para % Grasa Yuhasz
+    if col_actual == "%GRASA YUHASZ":
+        color_actual = "#e63946"  # ROJO para valor real
+        color_obj = "#2a9d8f"     # VERDE para objetivo
+
     # Ordenar meses cronológicamente
     orden_meses = (
         df[["Mes/Año", "Fecha de Eval."]]
@@ -168,16 +181,6 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
         df_mes = df[df["Mes/Año"] == mes].copy()
         jugadores = df_mes["Jugador"].tolist()
 
-        # Determinar color de cada barra actual según si supera objetivo
-        colores_actual = []
-        for _, row in df_mes.iterrows():
-            try:
-                v = float(row[col_actual])
-                o = float(row[col_objetivo])
-                colores_actual.append(color_actual if v > o else "#2a9d8f")
-            except:
-                colores_actual.append(color_actual)
-
         # Nombres descriptivos para Composición Corporal
         if col_actual == "M adiposa a bajar":
             name_actual = "Adiposa a bajar"
@@ -192,7 +195,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
                 x=jugadores,
                 y=df_mes[col_actual],
                 name=name_actual,
-                marker_color=colores_actual,
+                marker_color=color_actual,
                 text=[f"{v:.1f}" if pd.notna(v) else "" for v in df_mes[col_actual]],
                 textposition="outside",
                 textfont=dict(size=10),
@@ -202,7 +205,7 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
             row=1, col=i,
         )
 
-        # Barra: objetivo (siempre verde oscuro)
+        # Barra: objetivo
         fig.add_trace(
             go.Bar(
                 x=jugadores,
@@ -289,7 +292,9 @@ def crear_grafico_radar(df_jugador, df_equipo):
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
     # ── Encabezado ──────────────────────────────────────────────────────────
-    st.image("punto_referencia.png", width=400)
+    col_left, col_center, col_right = st.columns([1, 2, 1])
+    with col_center:
+        st.image("punto_referencia.png")
     st.title("Dashboard de Nutrición Profesional")
     st.caption("Monitoreo y seguimiento de composición corporal")
 
