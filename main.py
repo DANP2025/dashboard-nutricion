@@ -100,25 +100,66 @@ def cargar_datos():
     try:
         spreadsheet = client.open("Base_datos_nutricion")
         worksheet = spreadsheet.worksheet("Nutricion")
-        data = worksheet.get_all_records()
-        
+
+        # CORRECCIÓN CLAVE: usar UNFORMATTED_VALUE para obtener números reales
+        # sin formato de Google Sheets (evita valores inflados por formato de celda)
+        data = worksheet.get_all_records(
+            value_render_option='UNFORMATTED_VALUE',
+            date_time_render_option='FORMATTED_STRING'
+        )
+
         if not data:
             st.error("La hoja de cálculo está vacía o no tiene datos")
             return None
-            
+
         df = pd.DataFrame(data)
 
+        # Convertir fecha
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
-        # Limpieza robusta: reemplazar comas por puntos y convertir a numérico
+        # Convertir columnas numéricas con limpieza defensiva
+        cols_excluir = {"Fecha de Eval.", "Jugador", "Posicion"}
         for col in df.columns:
-            if col != "Fecha de Eval." and col != "Jugador" and col != "Posicion":
+            if col not in cols_excluir:
                 try:
-                    df[col] = df[col].astype(str).str.replace(',', '.')
+                    # Reemplazar coma decimal europea si el valor es string
+                    df[col] = df[col].apply(
+                        lambda x: str(x).replace(',', '.') if isinstance(x, str) else x
+                    )
                     df[col] = pd.to_numeric(df[col], errors='coerce')
-                except (ValueError, TypeError):
-                    pass  # Mantener columnas no numéricas sin cambios
+                except Exception:
+                    pass
 
+        # ── Validación de rangos conocidos (red de seguridad) ────────────────
+        # Si algún valor supera el máximo fisiológicamente posible,
+        # se reemplaza por NaN para no distorsionar los gráficos
+        rangos_validos = {
+            "Sum 6 plieg.":        (0, 300),    # mm: máximo razonable ~250mm
+            "OBJTIVO SUM PLIEGUES": (0, 300),
+            "%GRASA YUHASZ":       (0, 50),     # %: máximo razonable ~40%
+            "OBJETIVO YUHASZ":     (0, 50),
+            "M adiposa a bajar":   (-30, 30),   # kg: rango razonable
+            "M musc a aumentar":   (-30, 30),   # kg: rango razonable
+            "Plieg 1":             (0, 80),
+            "Plieg 2":             (0, 80),
+            "Plieg 3":             (0, 80),
+            "Plieg 4":             (0, 80),
+            "Plieg 5":             (0, 80),
+            "Plieg 6":             (0, 80),
+        }
+
+        for col, (vmin, vmax) in rangos_validos.items():
+            if col in df.columns:
+                mask_invalido = (df[col] < vmin) | (df[col] > vmax)
+                if mask_invalido.any():
+                    n_invalidos = mask_invalido.sum()
+                    st.warning(
+                        f"⚠️ Columna '{col}': se detectaron {n_invalidos} valor(es) "
+                        f"fuera del rango esperado [{vmin}, {vmax}] y fueron ignorados."
+                    )
+                    df.loc[mask_invalido, col] = None
+
+        # Traducir meses a español
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
             "April": "Abril", "May": "Mayo", "June": "Junio",
@@ -130,13 +171,12 @@ def cargar_datos():
             df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
 
         return df
+
     except gspread.SpreadsheetNotFound:
         st.error("Error: No se encontró el spreadsheet 'Base_datos_nutricion'")
-        st.error("Verifica que el nombre del spreadsheet sea correcto y que la Service Account tenga acceso")
         return None
     except gspread.WorksheetNotFound:
         st.error("Error: No se encontró la hoja 'Nutricion'")
-        st.error("Verifica que la hoja exista en el spreadsheet")
         return None
     except Exception as e:
         st.error(f"Error cargando datos: {e}")
