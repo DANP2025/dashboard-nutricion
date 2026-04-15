@@ -120,27 +120,16 @@ def cargar_datos():
         for col in df.columns:
             if col not in cols_excluir:
                 try:
-                    # Función de limpieza inteligente
+                    # Función de limpieza: reemplazar siempre comas por puntos
                     def limpiar_valor(val):
                         if pd.isna(val):
                             return val
                         # Si ya es numérico, devolverlo
                         if isinstance(val, (int, float)):
                             return val
-                        # Si es string, analizar formato
+                        # Si es string, reemplazar comas por puntos
                         val_str = str(val).strip()
-                        # Si tiene coma pero no punto, es formato latino (coma como decimal)
-                        if ',' in val_str and '.' not in val_str:
-                            return val_str.replace(',', '.')
-                        # Si tiene punto pero no coma, es formato estándar (punto como decimal)
-                        elif '.' in val_str and ',' not in val_str:
-                            return val_str
-                        # Si tiene ambos, eliminar puntos (separadores de miles) y reemplazar comas por puntos
-                        elif '.' in val_str and ',' in val_str:
-                            return val_str.replace('.', '').replace(',', '.')
-                        # Si no tiene ninguno, devolver tal cual
-                        else:
-                            return val_str
+                        return val_str.replace(',', '.')
 
                     df[col] = df[col].apply(limpiar_valor)
                     # Convertir a numérico con errors='coerce' y usar .fillna(0.0)
