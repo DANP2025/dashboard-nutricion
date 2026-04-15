@@ -150,11 +150,6 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
     Crea un gráfico de barras agrupadas con un subplot (pequeño múltiplo)
     por cada mes, ordenados cronológicamente.
     """
-    # Ajuste específico para % Grasa Yuhasz
-    if col_actual == "%GRASA YUHASZ":
-        color_actual = "#e63946"  # ROJO para valor real
-        color_obj = "#2a9d8f"     # VERDE para objetivo
-
     # Ordenar meses cronológicamente
     orden_meses = (
         df[["Mes/Año", "Fecha de Eval."]]
@@ -168,40 +163,59 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
     if n_meses == 0:
         return None
 
+    # ── Calcular rango Y real sobre los datos filtrados ──────────────────────
+    vals_actual = pd.to_numeric(df[col_actual], errors="coerce").dropna()
+    vals_obj    = pd.to_numeric(df[col_objetivo], errors="coerce").dropna()
+    
+    if vals_actual.empty and vals_obj.empty:
+        return None
+
+    y_max_real = max(
+        vals_actual.max() if not vals_actual.empty else 0,
+        vals_obj.max()    if not vals_obj.empty    else 0,
+    )
+    # Agregar 25% de margen para que las etiquetas no se corten
+    y_range = [0, round(y_max_real * 1.30, 1)]
+
     fig = make_subplots(
         rows=1,
         cols=n_meses,
-        shared_yaxes=True,
+        shared_yaxes=False,          # ← CAMBIO CLAVE: cada subplot maneja su propio eje
         subplot_titles=orden_meses,
-        horizontal_spacing=0.04,
+        horizontal_spacing=0.06,
     )
 
-    show_legend = True  # Solo mostrar leyenda en el primer subplot
+    show_legend = True
 
     for i, mes in enumerate(orden_meses, start=1):
         df_mes = df[df["Mes/Año"] == mes].copy()
         jugadores = df_mes["Jugador"].tolist()
 
-        # Nombres descriptivos para Composición Corporal
+        # Nombres descriptivos para la leyenda
         if col_actual == "M adiposa a bajar":
-            name_actual = "Adiposa a bajar"
+            name_actual   = "Adiposa a bajar"
             name_objetivo = "Muscular a aumentar"
         else:
-            name_actual = col_actual
+            name_actual   = col_actual
             name_objetivo = "Objetivo"
+
+        # Valores numéricos seguros
+        y_actual = pd.to_numeric(df_mes[col_actual],  errors="coerce").round(1)
+        y_obj    = pd.to_numeric(df_mes[col_objetivo], errors="coerce").round(1)
 
         # Barra: valor actual
         fig.add_trace(
             go.Bar(
                 x=jugadores,
-                y=df_mes[col_actual].round(1),
+                y=y_actual,
                 name=name_actual,
                 marker_color=color_actual,
-                texttemplate='%{y:.1f}',
-                textposition="outside",
-                textfont=dict(size=10),
+                text=[f"{v:.1f}" if pd.notna(v) else "" for v in y_actual],
+                textposition="inside",
+                textfont=dict(size=10, color="white"),
                 showlegend=show_legend,
                 legendgroup="actual",
+                cliponaxis=False,
             ),
             row=1, col=i,
         )
@@ -210,24 +224,34 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
         fig.add_trace(
             go.Bar(
                 x=jugadores,
-                y=df_mes[col_objetivo].round(1),
+                y=y_obj,
                 name=name_objetivo,
                 marker_color=color_obj,
-                texttemplate='%{y:.1f}',
-                textposition="outside",
-                textfont=dict(size=10),
+                text=[f"{v:.1f}" if pd.notna(v) else "" for v in y_obj],
+                textposition="inside",
+                textfont=dict(size=10, color="white"),
                 showlegend=show_legend,
                 legendgroup="objetivo",
+                cliponaxis=False,
             ),
             row=1, col=i,
         )
 
-        show_legend = False  # Solo en el primer subplot
+        show_legend = False
+
+        # ── Aplicar rango Y fijo en cada subplot ────────────────────────────
+        yaxis_key = "yaxis" if i == 1 else f"yaxis{i}"
+        fig.layout[yaxis_key].update(
+            range=y_range,
+            gridcolor="#f0f0f0",
+            tickformat=".1f",
+            showgrid=True,
+        )
 
     fig.update_layout(
         barmode="group",
-        height=500,
-        margin=dict(t=40, b=60, l=30, r=10),
+        height=420,
+        margin=dict(t=50, b=70, l=40, r=10),
         plot_bgcolor="white",
         paper_bgcolor="white",
         font=dict(family="Arial, sans-serif", size=11),
@@ -241,15 +265,14 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
             bordercolor="#dee2e6",
             borderwidth=1,
         ),
-        yaxis=dict(gridcolor="#f0f0f0", tickformat=".1f"),
     )
 
-    # Rotar etiquetas del eje X en todos los subplots
+    # Rotar etiquetas del eje X
     fig.update_xaxes(tickangle=-40, tickfont=dict(size=9))
 
-    # Subtítulos de meses en negrita
+    # Subtítulos de meses
     for ann in fig.layout.annotations:
-        ann.update(font=dict(size=12, color="#1a3a5c"), y=ann.y + 0.02)
+        ann.update(font=dict(size=12, color="#1a3a5c"))
 
     return fig
 
