@@ -165,9 +165,12 @@ def cargar_datos():
             "July": "Julio", "August": "Agosto", "September": "Septiembre",
             "October": "Octubre", "November": "Noviembre", "December": "Diciembre",
         }
-        df["Mes/Año"] = df["Fecha de Eval."].dt.strftime("%B %Y")
+        # Generar Mes/Año solo para fechas válidas
+        df["Mes/Año"] = df["Fecha de Eval."].apply(
+            lambda x: x.strftime("%B %Y") if pd.notna(x) else None
+        )
         for eng, esp in meses_es.items():
-            df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
+            df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp, regex=False)
 
         return df
 
