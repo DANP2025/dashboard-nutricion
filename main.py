@@ -364,7 +364,7 @@ def main():
             "Pliegues vs Objetivo", "mm"
         )
         if fig1:
-            st.plotly_chart(fig1, width='stretch')
+            st.plotly_chart(fig1, use_container_width=True)
     else:
         st.warning("Columnas de pliegues no encontradas.")
 
@@ -378,7 +378,7 @@ def main():
             "% Grasa vs Objetivo", "%"
         )
         if fig2:
-            st.plotly_chart(fig2, width='stretch')
+            st.plotly_chart(fig2, use_container_width=True)
     else:
         st.warning("Columnas de % grasa no encontradas.")
 
@@ -393,7 +393,7 @@ def main():
             color_actual="#e63946", color_obj="#2a9d8f"
         )
         if fig3:
-            st.plotly_chart(fig3, width='stretch')
+            st.plotly_chart(fig3, use_container_width=True)
     else:
         st.warning("Columnas de composición no encontradas.")
 
@@ -407,7 +407,7 @@ def main():
                         unsafe_allow_html=True)
             fig_radar = crear_grafico_radar(df_jugador, df_f)
             if fig_radar:
-                st.plotly_chart(fig_radar, width='stretch')
+                st.plotly_chart(fig_radar, use_container_width=True)
 
     # ── Controles de refresco ─────────────────────────────────────────────────
     st.markdown("---")
