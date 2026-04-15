@@ -124,6 +124,25 @@ def cargar_datos():
                 except Exception:
                     pass
 
+        # Correcciones específicas de escala basadas en análisis de datos
+        # Sum 6 pliegues: valores muy altos (475) deben ser divididos por 10
+        for col in ['Sum 6 plieg.', 'OBJTIVO SUM PLIEGUES']:
+            if col in df.columns:
+                # Dividir por 10 solo si el valor es > 100 (para evitar afectar valores correctos)
+                df[col] = df[col].apply(lambda x: x / 10 if pd.notna(x) and x > 100 else x)
+
+        # %GRASA YUHASZ: valores muy altos (7572) deben ser divididos por 1000
+        for col in ['%GRASA YUHASZ', 'OBJETIVO YUHASZ']:
+            if col in df.columns:
+                # Dividir por 1000 solo si el valor es > 100
+                df[col] = df[col].apply(lambda x: x / 1000 if pd.notna(x) and x > 100 else x)
+
+        # M adiposa/muscular: valores muy pequeños (1.11) pueden necesitar multiplicación
+        for col in ['M adiposa a bajar', 'M musc a aumentar']:
+            if col in df.columns:
+                # Multiplicar por 1000 solo si el valor es < 1
+                df[col] = df[col].apply(lambda x: x * 1000 if pd.notna(x) and x < 1 else x)
+
         # Traducir meses a español
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
