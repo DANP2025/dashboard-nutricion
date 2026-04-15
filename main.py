@@ -108,27 +108,28 @@ def cargar_datos():
 
         df = pd.DataFrame(data)
 
+        # Aplicar .strip() a los nombres de las columnas para eliminar espacios invisibles
+        df.columns = df.columns.str.strip()
+
         # Convertir fecha
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
-        # Convertir columnas numéricas con limpieza defensiva
+        # Limpieza robusta para columnas numéricas con regex
+        import re
         cols_excluir = {"Fecha de Eval.", "Jugador", "Posicion"}
         for col in df.columns:
             if col not in cols_excluir:
                 try:
-                    # Reemplazar coma decimal europea si el valor es string
-                    df[col] = df[col].apply(
-                        lambda x: str(x).replace(',', '.') if isinstance(x, str) else x
+                    # Convertir a string y eliminar caracteres no numéricos excepto punto y coma
+                    df[col] = df[col].astype(str).apply(
+                        lambda x: re.sub(r'[^0-9.,-]', '', str(x)) if pd.notna(x) else x
                     )
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                    # Reemplazar comas por puntos ANTES de convertir a float
+                    df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
+                    # Convertir a numérico y usar .fillna(0.0) para valores vacíos
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
                 except Exception:
                     pass
-
-        # Corrección específica para %GRASA YUHASZ: valores muy altos (7572) deben ser divididos por 1000
-        for col in ['%GRASA YUHASZ', 'OBJETIVO YUHASZ']:
-            if col in df.columns:
-                # Dividir por 1000 solo si el valor es > 100
-                df[col] = df[col].apply(lambda x: x / 1000 if pd.notna(x) and x > 100 else x)
 
         # Traducir meses a español
         meses_es = {
@@ -177,16 +178,17 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
     # ── Calcular rango Y real sobre los datos filtrados ──────────────────────
     vals_actual = pd.to_numeric(df[col_actual], errors="coerce").dropna()
     vals_obj    = pd.to_numeric(df[col_objetivo], errors="coerce").dropna()
-    
+
     if vals_actual.empty and vals_obj.empty:
         return None
 
-    y_max_real = max(
+    # Calcular manualmente el valor máximo de los datos filtrados
+    y_max = max(
         vals_actual.max() if not vals_actual.empty else 0,
         vals_obj.max()    if not vals_obj.empty    else 0,
     )
-    # Agregar 25% de margen para que las etiquetas no se corten
-    y_range = [0, round(y_max_real * 1.30, 1)]
+    # Definir rango fijo para el eje Y con 20% de margen
+    y_range = [0, round(y_max * 1.2, 1)]
 
     fig = make_subplots(
         rows=1,
