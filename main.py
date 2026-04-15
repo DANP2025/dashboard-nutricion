@@ -124,35 +124,6 @@ def cargar_datos():
                 except Exception:
                     pass
 
-        # ── Validación de rangos conocidos (red de seguridad) ────────────────
-        # Si algún valor supera el máximo fisiológicamente posible,
-        # se reemplaza por NaN para no distorsionar los gráficos
-        rangos_validos = {
-            "Sum 6 plieg.":        (0, 300),    # mm: máximo razonable ~250mm
-            "OBJTIVO SUM PLIEGUES": (0, 300),
-            "%GRASA YUHASZ":       (0, 50),     # %: máximo razonable ~40%
-            "OBJETIVO YUHASZ":     (0, 50),
-            "M adiposa a bajar":   (-30, 30),   # kg: rango razonable
-            "M musc a aumentar":   (-30, 30),   # kg: rango razonable
-            "Plieg 1":             (0, 80),
-            "Plieg 2":             (0, 80),
-            "Plieg 3":             (0, 80),
-            "Plieg 4":             (0, 80),
-            "Plieg 5":             (0, 80),
-            "Plieg 6":             (0, 80),
-        }
-
-        for col, (vmin, vmax) in rangos_validos.items():
-            if col in df.columns:
-                mask_invalido = (df[col] < vmin) | (df[col] > vmax)
-                if mask_invalido.any():
-                    n_invalidos = mask_invalido.sum()
-                    st.warning(
-                        f"⚠️ Columna '{col}': se detectaron {n_invalidos} valor(es) "
-                        f"fuera del rango esperado [{vmin}, {vmax}] y fueron ignorados."
-                    )
-                    df.loc[mask_invalido, col] = None
-
         # Traducir meses a español
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
