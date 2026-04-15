@@ -100,12 +100,7 @@ def cargar_datos():
     try:
         spreadsheet = client.open("Base_datos_nutricion")
         worksheet = spreadsheet.worksheet("Nutricion")
-
-        # CORRECCIÓN CLAVE: usar UNFORMATTED_VALUE para obtener números reales
-        # sin formato de Google Sheets (evita valores inflados por formato de celda)
-        data = worksheet.get_all_records(
-            value_render_option='UNFORMATTED_VALUE'
-        )
+        data = worksheet.get_all_records()
 
         if not data:
             st.error("La hoja de cálculo está vacía o no tiene datos")
@@ -165,12 +160,9 @@ def cargar_datos():
             "July": "Julio", "August": "Agosto", "September": "Septiembre",
             "October": "Octubre", "November": "Noviembre", "December": "Diciembre",
         }
-        # Generar Mes/Año solo para fechas válidas
-        df["Mes/Año"] = df["Fecha de Eval."].apply(
-            lambda x: x.strftime("%B %Y") if pd.notna(x) else None
-        )
+        df["Mes/Año"] = df["Fecha de Eval."].dt.strftime("%B %Y")
         for eng, esp in meses_es.items():
-            df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp, regex=False)
+            df["Mes/Año"] = df["Mes/Año"].str.replace(eng, esp)
 
         return df
 
