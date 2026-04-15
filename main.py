@@ -110,29 +110,14 @@ def cargar_datos():
 
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
-        # Convertir comas a puntos en columnas numéricas
+        # Limpieza robusta: reemplazar comas por puntos y convertir a numérico
         for col in df.columns:
             if col != "Fecha de Eval." and col != "Jugador" and col != "Posicion":
                 try:
-                    df[col] = df[col].astype(str).str.replace(',', '.').astype(float)
+                    df[col] = df[col].astype(str).str.replace(',', '.')
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
                 except (ValueError, TypeError):
                     pass  # Mantener columnas no numéricas sin cambios
-
-        # Aplicar lógica específica de división para cada métrica
-        # Sum 6 plieg. y OBJTIVO SUM PLIEGUES: dividir por 10 (4.8 → 48, asumiendo origen 480)
-        for col in ['Sum 6 plieg.', 'OBJTIVO SUM PLIEGUES']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce') / 10
-
-        # %GRASA YUHASZ y OBJETIVO YUHASZ: dividir por 1000 (7572.3 → 7.57)
-        for col in ['%GRASA YUHASZ', 'OBJETIVO YUHASZ']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce') / 1000
-
-        # M musc a aumentar y M adiposa a bajar: dividir por 1,000,000,000 si vienen como timestamp/entero largo
-        for col in ['M musc a aumentar', 'M adiposa a bajar']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce') / 1000000000
 
         meses_es = {
             "January": "Enero", "February": "Febrero", "March": "Marzo",
