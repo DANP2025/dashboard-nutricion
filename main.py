@@ -116,6 +116,9 @@ def cargar_datos():
         # Convertir fecha
         df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
 
+        # Filtrar filas con fechas nulas para evitar Enero 1970
+        df = df[df["Fecha de Eval."].notna()]
+
         # Convertir columnas numéricas con limpieza defensiva
         cols_excluir = {"Fecha de Eval.", "Jugador", "Posicion"}
         for col in df.columns:
