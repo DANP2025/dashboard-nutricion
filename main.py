@@ -115,7 +115,16 @@ def cargar_datos():
 
         # Convertir fecha si existe la columna
         if "Fecha de Eval." in df.columns:
-            df["Fecha de Eval."] = pd.to_datetime(df["Fecha de Eval."], errors="coerce")
+            def convertir_fecha(val):
+                if pd.isna(val) or val == "" or val == 0:
+                    return pd.NaT
+                # Si es número serial de Google Sheets (días desde 30/12/1899)
+                if isinstance(val, (int, float)):
+                    return pd.Timestamp("1899-12-30") + pd.Timedelta(days=int(val))
+                # Si es string, convertir normalmente
+                return pd.to_datetime(val, errors="coerce", dayfirst=True)
+
+            df["Fecha de Eval."] = df["Fecha de Eval."].apply(convertir_fecha)
 
         # Limpieza inteligente para formato latino vs decimal estándar
         cols_excluir = {"Fecha de Eval.", "Jugador", "Posicion"}
