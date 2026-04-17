@@ -100,7 +100,10 @@ def cargar_datos():
     try:
         spreadsheet = client.open("Base_datos_nutricion")
         worksheet = spreadsheet.worksheet("Nutricion")
-        data = worksheet.get_all_records()
+        data = worksheet.get_all_records(
+            value_render_option='UNFORMATTED_VALUE',
+            date_time_render_option='FORMATTED_STRING'
+        )
 
         if not data:
             st.error("La hoja de cálculo está vacía o no tiene datos")
@@ -185,20 +188,12 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
     if n_meses == 0:
         return None
 
-    # ── Calcular rango Y real sobre los datos filtrados ──────────────────────
+    # ── Verificar que existan datos válidos ──────────────────────────────────
     vals_actual = pd.to_numeric(df[col_actual], errors="coerce").dropna()
     vals_obj    = pd.to_numeric(df[col_objetivo], errors="coerce").dropna()
 
     if vals_actual.empty and vals_obj.empty:
         return None
-
-    # Calcular manualmente el valor máximo de los datos filtrados
-    y_max = max(
-        vals_actual.max() if not vals_actual.empty else 0,
-        vals_obj.max()    if not vals_obj.empty    else 0,
-    )
-    # Definir rango fijo para el eje Y con 15% de margen
-    y_range = [0, round(y_max * 1.15, 1)]
 
     fig = make_subplots(
         rows=1,
@@ -264,15 +259,15 @@ def crear_grafico_multiples(df, col_actual, col_objetivo, titulo,
 
         show_legend = False
 
-    # Aplicar rango Y fijo a todos los subplots con autorange=False y formato 1 decimal
+    # Dejar que Plotly calcule automáticamente el rango Y desde los datos reales
     fig.update_yaxes(
-        range=y_range,
-        autorange=False,
+        autorange=True,
         gridcolor="#f0f0f0",
-        tickformat=".1f",
-        hoverformat=".1f",
+        tickformat=".2~f",
+        hoverformat=".2~f",
         showgrid=True,
-        exponentformat="none"  # Evitar notación científica
+        exponentformat="none",
+        rangemode="tozero"
     )
 
     fig.update_layout(
