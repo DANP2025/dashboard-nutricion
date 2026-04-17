@@ -101,8 +101,7 @@ def cargar_datos():
         spreadsheet = client.open("Base_datos_nutricion")
         worksheet = spreadsheet.worksheet("Nutricion")
         data = worksheet.get_all_records(
-            value_render_option='UNFORMATTED_VALUE',
-            date_time_render_option='FORMATTED_STRING'
+            value_render_option='UNFORMATTED_VALUE'
         )
 
         if not data:
