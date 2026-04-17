@@ -349,7 +349,7 @@ def main():
     col_left, col_center, col_right = st.columns([1, 2, 1])
     with col_center:
         st.image("punto_referencia.png")
-    st.title("Nutrición - Plantek Profesional")
+    st.title("Nutrición - Plantel Profesional")
     st.caption("Monitoreo y seguimiento de composición corporal")
 
     # ── Cargar datos ─────────────────────────────────────────────────────────
